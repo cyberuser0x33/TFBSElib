@@ -62,25 +62,24 @@ function ScriptCrypt {
         [Array]::Copy($nonce,0,$r,$kb.Length,8)
         ,$r
     }
-
-    if ($Mode -eq 'Encrypt') {
-        $full = [IO.Path]::GetFullPath($Path)
-        if (-not [IO.File]::Exists($full)) { throw "File not found: $full" }
-        $plain = [IO.File]::ReadAllBytes($full)
-        $nonce = New-Object byte[] 8
-        ([Security.Cryptography.RandomNumberGenerator]::Create()).GetBytes($nonce)
-        $k = _rk $Key $nonce
-        $ct = _rc4 $k $plain
-        $all = New-Object byte[] ($ct.Length + 8)
-        [Array]::Copy($nonce,0,$all,0,8)
-        [Array]::Copy($ct,0,$all,8,$ct.Length)
-        $out = [IO.Path]::Combine(
-            [IO.Path]::GetDirectoryName($full),
-            ([IO.Path]::GetFileNameWithoutExtension($full) + '.crypt.ps1'))
-        [IO.File]::WriteAllText($out, (_enc $all), [Text.Encoding]::ASCII)
-        return $out
-    }
-
+   if ($Mode -eq 'E') {
+    $full = [IO.Path]::GetFullPath($Path)
+    if (-not [IO.File]::Exists($full)) { throw "File not found: $full" }
+    $plain = [IO.File]::ReadAllBytes($full)
+    $nonce = New-Object byte[] 8
+    ([Security.Cryptography.RandomNumberGenerator]::Create()).GetBytes($nonce)
+    $k = _rk $Key $nonce
+    $ct = _rc4 $k $plain
+    $all = New-Object byte[] ($ct.Length + 8)
+    [Array]::Copy($nonce,0,$all,0,8)
+    [Array]::Copy($ct,0,$all,8,$ct.Length)
+    $out = [IO.Path]::Combine(
+        [IO.Path]::GetDirectoryName($full),
+        ([IO.Path]::GetFileNameWithoutExtension($full) + '.crypt.ps1'))
+    [IO.File]::WriteAllText($out, (_enc $all), [Text.Encoding]::ASCII)
+    return $out
+}
+elseif ($Mode -eq 'D') {
     if ($Path -match '^https?://') {
         $text = (New-Object Net.WebClient).DownloadString($Path)
     } else {
